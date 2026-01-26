@@ -1,0 +1,13 @@
+# Data files
+*.csv
+*.mcap
+
+# Python cache
+__pycache__/
+*.pyc
+
+# VS Code
+.vscode/
+
+# ROS bags / logs
+rosbag2_*/
