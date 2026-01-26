@@ -8,18 +8,18 @@ class ForceReconstructor:
  
     def __init__(
         self,
-        NW: int = 20,
-        Thr_samples: int = 1500,
-        press_sigma: float = 7.0,
-        reset_confirm: int = 5,
-        press_confirm: int = 5,
-        reset_band_scale: float = 1.0,
-        slope_multiplier: float = 1.0,
-        samples_artifact: int = 0,
-        alpha: float = 1.0,
-        nSamples_adaptive_offset: int = 50,
-        debug: bool = False,
-        signal2noise_ratio : float = 10.0,
+        NW: int = 20, # window size for Average calculation
+        Thr_samples: int = 1500, # number of samples to compute initial threshold
+        press_sigma: float = 7.0, # multiplier for standard deviation to set press threshold
+        reset_confirm: int = 5, # number of samples to confirm reset
+        press_confirm: int = 5, # number of samples to confirm press
+        reset_band_scale: float = 1.0, # scale for reset band
+        avg_multiplier: float = 1.0, # multiplier for average to determine states
+        samples_artifact: int = 0, # number of samples to hold after peak detection
+        alpha: float = 1.0, # smoothing factor (1.0 = no smoothing)
+        nSamples_adaptive_offset: int = 50, # number of samples for adaptive offset calculation
+        debug: bool = False, 
+        signal2noise_ratio : float = 10.0, # minimum signal to noise ratio for valid event
     ):
         self.NW = NW
         self.Thr_samples = Thr_samples
@@ -27,7 +27,7 @@ class ForceReconstructor:
         self.reset_confirm = reset_confirm
         self.press_confirm = press_confirm
         self.reset_band_scale = reset_band_scale
-        self.slope_multiplier = slope_multiplier
+        self.avg_multiplier = avg_multiplier
         self.samples_artifact = samples_artifact
         self.alpha = alpha
         self.debug = debug
@@ -71,9 +71,9 @@ class ForceReconstructor:
  
     # --------------------------------------------------------
     def set_label(self, avg):
-        if avg >= self.slope_multiplier * self.averagetouch:
+        if avg >= self.avg_multiplier * self.averagetouch:
             return "press"
-        elif avg <= -self.slope_multiplier * self.averagetouch:
+        elif avg <= -self.avg_multiplier * self.averagetouch:
             return "release"
         elif abs(avg) <= self.avergeplateau:
             return "plateau"
@@ -102,12 +102,12 @@ class ForceReconstructor:
         signal = signal_raw[self.Thr_samples :]
  
         thr_press = self.thr_press
-        num_of_samples_slope = int(round(0.6 * NW))
+        num_of_samples_avg = int(round(0.6 * NW))
         half = NW // 2
-        half_slope = num_of_samples_slope // 2
+        half_avg = num_of_samples_avg // 2
         idx1 = 0
-        idx2 = half_slope
- 
+        idx2 = half_avg
+
         # ---------- buffers ----------
         raw_signal_buffer = np.zeros(NW)
         buffer = np.zeros(NW)
@@ -284,7 +284,7 @@ class ForceReconstructor:
             cond1 = (counter == NW - pre_len + 1 if not first_window_done else counter == NW)
  
             if cond1:
-                avg = (-buffer[idx1] + buffer[idx2]) / num_of_samples_slope
+                avg = (-buffer[idx1] + buffer[idx2]) / num_of_samples_avg
                 counter = 0
  
                 if not first_window_done:
@@ -306,7 +306,7 @@ class ForceReconstructor:
                     states[0] = self.set_label(avg)
  
                     if self.debug:
-                        print(f"Press detected @ {k}, slope {avg}")
+                        print(f"Press detected @ {k}, Average {avg}")
                     continue
  
                 st = self.set_label(avg)

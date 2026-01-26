@@ -32,7 +32,7 @@ print(f"Detected {n_sensors} sensors")
 # Apply force reconstruction to ALL sensors
 # --------------------------------------------------
 Thr_samples = 1500
-fr = ForceReconstructor(NW=30, Thr_samples=Thr_samples, press_sigma=10, alpha=0.05, reset_band_scale=1, slope_multiplier=0.3,
+fr = ForceReconstructor(NW=30, Thr_samples=Thr_samples, press_sigma=10, alpha=0.05, reset_band_scale=1, avg_multiplier=0.3,
                         nSamples_adaptive_offset=50, press_confirm=5, reset_confirm=20, samples_artifact=2000, debug=True, signal2noise_ratio=10)
 
 n_samples = n_samples - Thr_samples
