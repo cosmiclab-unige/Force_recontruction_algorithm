@@ -1,0 +1,66 @@
+rosbag2_bagfile_information:
+  version: 9
+  storage_identifier: mcap
+  duration:
+    nanoseconds: 29464838478
+  starting_time:
+    nanoseconds_since_epoch: 1759834358527085707
+  message_count: 6034
+  topics_with_message_count:
+    - topic_metadata:
+        name: /raw_sensor_data
+        type: unige_tactile_sensors_ros_interfaces/msg/SensorArray
+        serialization_format: cdr
+        offered_qos_profiles:
+          - history: unknown
+            depth: 0
+            reliability: reliable
+            durability: volatile
+            deadline:
+              sec: 9223372036
+              nsec: 854775807
+            lifespan:
+              sec: 9223372036
+              nsec: 854775807
+            liveliness: automatic
+            liveliness_lease_duration:
+              sec: 9223372036
+              nsec: 854775807
+            avoid_ros_namespace_conventions: false
+        type_description_hash: RIHS01_da9ad6480572871e13266836e54582469e05bd4d752dd12099ecbf98cad34c81
+      message_count: 5894
+    - topic_metadata:
+        name: /gripper_state
+        type: unige_tactile_sensors_ros_interfaces/msg/GripperState
+        serialization_format: cdr
+        offered_qos_profiles:
+          - history: unknown
+            depth: 0
+            reliability: reliable
+            durability: volatile
+            deadline:
+              sec: 9223372036
+              nsec: 854775807
+            lifespan:
+              sec: 9223372036
+              nsec: 854775807
+            liveliness: automatic
+            liveliness_lease_duration:
+              sec: 9223372036
+              nsec: 854775807
+            avoid_ros_namespace_conventions: false
+        type_description_hash: RIHS01_a3a7195ea4a4a7425d69a96e82e510fd97a0633e7c40f9cacc41c7279d4590e3
+      message_count: 140
+  compression_format: ""
+  compression_mode: ""
+  relative_file_paths:
+    - rosbag2_2025_10_07-12_52_35_0.mcap
+  files:
+    - path: rosbag2_2025_10_07-12_52_35_0.mcap
+      starting_time:
+        nanoseconds_since_epoch: 1759834358527085707
+      duration:
+        nanoseconds: 29464838478
+      message_count: 6034
+  custom_data: ~
+  ros_distro: jazzy
