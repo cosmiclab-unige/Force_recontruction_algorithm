@@ -14,7 +14,7 @@ class ForceReconstructor:
         reset_confirm: int = 20, # number of samples to confirm reset
         press_confirm: int = 5, # number of samples to confirm press
         reset_band_scale: float = 1.0, # scale for reset band
-        avg_multiplier: float = 0.3, # multiplier for average to determine states
+        avg_multiplier: float = 1.0, # multiplier for average to determine states
         samples_artifact: int = 2000, # number of samples to hold after peak detection
         alpha: float = 0.05, # smoothing factor (1.0 = no smoothing)
         nSamples_adaptive_offset: int = 50, # number of samples for adaptive offset calculation
@@ -109,11 +109,12 @@ class ForceReconstructor:
         signal = signal_raw[self.Thr_samples :]
  
         thr_press = self.thr_press
-        num_of_samples_avg = int(round(0.6 * NW))
-        half = NW // 2
-        half_avg = num_of_samples_avg // 2
-        idx1 = 0
-        idx2 = half_avg
+
+        # --------- SN ----------
+        max_post_trigger = 0.0
+        idx_max = 0
+        valid_event = True
+        noise_level = 0.0
 
         # ---------- buffers ----------
         raw_signal_buffer = np.zeros(NW)
@@ -197,6 +198,7 @@ class ForceReconstructor:
                 reset_integral = False
                 valid_event = True
                 max_post_trigger = 0.0
+                idx_max = 0
                 continue
  
             # ---------- threshold crossing ----------
@@ -231,6 +233,7 @@ class ForceReconstructor:
  
             if abs(x_raw) > max_post_trigger:
                 max_post_trigger = abs(x_raw)
+                idx_max += 1
  
             # ---------- HOLD ----------
             if hold_counter > 0:
@@ -291,8 +294,10 @@ class ForceReconstructor:
             cond1 = (counter == NW - pre_len + 1 if not first_window_done else counter == NW)
  
             if cond1:
-                avg = (-buffer[idx1] + buffer[idx2]) / num_of_samples_avg
+                idx = idx_max+self.pre_trigger_len if idx_max+self.pre_trigger_len < NW else NW -1
+                avg = (-buffer[0] + buffer[idx]) / (idx + 1)
                 counter = 0
+                idx_max = 0
  
                 if not first_window_done:
                     if max_post_trigger < self.signal2noise_ratio * noise_level:
