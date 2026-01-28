@@ -8,15 +8,15 @@ class ForceReconstructor:
  
     def __init__(
         self,
-        NW: int = 20, # window size for Average calculation
+        NW: int = 30, # window size for Average calculation
         Thr_samples: int = 1500, # number of samples to compute initial threshold
-        press_sigma: float = 7.0, # multiplier for standard deviation to set press threshold
-        reset_confirm: int = 5, # number of samples to confirm reset
+        press_sigma: float = 10.0, # multiplier for standard deviation to set press threshold
+        reset_confirm: int = 20, # number of samples to confirm reset
         press_confirm: int = 5, # number of samples to confirm press
         reset_band_scale: float = 1.0, # scale for reset band
-        avg_multiplier: float = 1.0, # multiplier for average to determine states
-        samples_artifact: int = 0, # number of samples to hold after peak detection
-        alpha: float = 1.0, # smoothing factor (1.0 = no smoothing)
+        avg_multiplier: float = 0.3, # multiplier for average to determine states
+        samples_artifact: int = 2000, # number of samples to hold after peak detection
+        alpha: float = 0.05, # smoothing factor (1.0 = no smoothing)
         nSamples_adaptive_offset: int = 50, # number of samples for adaptive offset calculation
         debug: bool = False, 
         signal2noise_ratio : float = 10.0, # minimum signal to noise ratio for valid event
@@ -48,6 +48,7 @@ class ForceReconstructor:
  
     # --------------------------------------------------------
     def smooth_signal(self, signal_raw):
+        """ Exponential moving average smoothing """
         if self.alpha >= 1.0:
             return signal_raw.copy()
  
@@ -60,6 +61,7 @@ class ForceReconstructor:
  
     # --------------------------------------------------------
     def compute_thresholds(self, signal_raw):
+        """ Compute initial thresholds based on first Thr_samples """
         thr_samples = signal_raw[: self.Thr_samples]
         sigma0 = np.std(thr_samples, ddof=1)
  
@@ -71,6 +73,7 @@ class ForceReconstructor:
  
     # --------------------------------------------------------
     def set_label(self, avg):
+        """ Set state label based on average value """
         if avg >= self.avg_multiplier * self.averagetouch:
             return "press"
         elif avg <= -self.avg_multiplier * self.averagetouch:
@@ -82,7 +85,11 @@ class ForceReconstructor:
  
     # --------------------------------------------------------
     def integral(self, data_raw: np.ndarray, sensor_idx: int):
- 
+        """ Perform force reconstruction for a single sensor.   
+         
+         Args:
+             data_raw (np.ndarray): Raw data array of shape (n_samples, n_sensors).
+             sensor_idx (int): Index of the sensor to process.  """
         # ---------- local bindings (speed) ----------
         NW = self.NW
         thr_press = self.thr_press
