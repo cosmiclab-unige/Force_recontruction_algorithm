@@ -139,6 +139,7 @@ class ForceReconstructor:
         idx_max = 0
         valid_event = True
         noise_level = 0.0
+        minimum_integral = 1e6
 
         # ---------- loop ----------
         for k in range(N):
@@ -223,6 +224,7 @@ class ForceReconstructor:
             if abs(x_raw) > max_post_trigger:
                 max_post_trigger = abs(x_raw)
                 idx_max += 1
+            
 
             # ---------- HOLD ----------
             if hold_counter > 0:
@@ -244,12 +246,13 @@ class ForceReconstructor:
 
             # ---------- HOLD trigger ----------
             if not peak_detected:
-                current_state = states[idx_states] if idx_states > 0 else ""
+                current_state = states[idx_states-1] if idx_states > 0 else ""
                 if current_state in ("press", "plateau"):
-                    if integral <= last_integral + 1e-6:
-                        hold_counter = hold_duration
-                        held_integral_value = integral
-                        peak_detected = True
+                    #if integral <= last_integral + 1e-6:
+                    hold_counter = hold_duration
+                    held_integral_value = integral
+                    peak_detected = True
+                    continue
 
             last_integral = integral
 
@@ -261,7 +264,6 @@ class ForceReconstructor:
                     buffer[:pre_len] = buffer_integral_pre_trigger
                 else:
                     buffer[counter + pre_len - 1] = integral
-
             counter += 1
 
             # ---------- release ----------
@@ -283,18 +285,26 @@ class ForceReconstructor:
             cond1 = (counter == NW - pre_len + 1 if not first_window_done else counter == NW)
 
             if cond1:
-                idx = idx_max+self.pre_trigger_len if idx_max+self.pre_trigger_len < NW else NW -1
-                avg = (-buffer[0] + buffer[idx]) / (idx_max +1)
                 counter = 0
-                idx_max = 0
+                if not first_window_done:
+                    idx = idx_max+self.pre_trigger_len if idx_max+self.pre_trigger_len < NW else NW -1
+                    avg = (-buffer[0] + buffer[idx]) / (idx + 1)
+                    print(f"Slope PRESS @ {idx} -- slope {avg}")
+                else:
+                    idx_min = np.argmin(buffer) 
+                    avg = (buffer[idx_min] - buffer[0]) / (idx_min+1)
+                   # print(f"Slope MIN @ {k + idx_min-NW} -- slope {avg}")
+                
 
                 if not first_window_done:
                     if max_post_trigger < self.signal2noise_ratio * noise_level:
                         valid_event = False
                         integral = 0.0
                         integral_out[:k+1] = 0.0
+                        idx = 0
                         if self.debug:
                             print(f"Event discarded due to low S/N @ {k} -- noise level: {noise_level:.4f}, max post trigger: {max_post_trigger:.4f}")
+                        max_post_trigger = 0.0
                         continue
 
                     a = abs(avg) if abs(avg) > 1e-12 else 1e-12
@@ -310,13 +320,15 @@ class ForceReconstructor:
 
                     if self.debug:
                         print(f"Press detected @ {k}, slope {avg}")
+                        states[idx_states] = "press"
+                        idx_states += 1
                     continue
 
                 st = self.set_label(avg)
 
-                if idx_states < 2:
-                    idx_states += 1
+                if idx_states < 3:
                     states[idx_states] = st
+                    idx_states += 1
                 else:
                     states[0], states[1], states[2] = states[1], states[2], st
 

@@ -1,11 +1,11 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import pandas as pd
-from Force_reconstruction_algo_PVDF import ForceReconstructor   
+from Force_reconstruction_algo_PVDF_v1.3 import ForceReconstructor   
 
 from pathlib import Path
 
-file_path = Path(__file__).parent.parent / "Dataset" / "first_attempt_gamma"
+file_path = Path(__file__).parent.parent / "Dataset" / "pvdf 3"
 
 df = pd.read_csv(
     file_path,
@@ -36,8 +36,11 @@ print(f"Detected {n_sensors} sensors")
 # Apply force reconstruction to ALL sensors
 # --------------------------------------------------
 Thr_samples = 1500
-fr = ForceReconstructor(NW=100, Thr_samples=Thr_samples, press_sigma=10, alpha=0.05, reset_band_scale=1, slope_multiplier=1.5,
-                        nSamples_adaptive_offset=50, press_confirm=5, reset_confirm=20, samples_artifact=0, debug=True, signal2noise_ratio=3)
+
+fr = ForceReconstructor(NW = 500, fifo_buffer_lenght = 50, Thr_samples = 1500,
+        press_sigma= 10, press_confirm = 3, slope_multiplier = 0.7, alpha = 0.05,
+        nSamples_adaptive_offset = 50, samples_after_release=500, debug = True, signal2noise_ratio=10.0)
+
 n_samples = n_samples - Thr_samples
 time_axis = time_axis[Thr_samples:]
 
