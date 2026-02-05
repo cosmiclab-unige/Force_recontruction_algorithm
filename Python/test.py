@@ -1,11 +1,12 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import pandas as pd
-from Force_reconstruction_algo_PVDF_v1.3 import ForceReconstructor   
+from Force_reconstruction_algo_PVDF_v3 import ForceReconstructor   
 
 from pathlib import Path
 
-file_path = Path(__file__).parent.parent / "Dataset" / "usecase_exp_peach.csv"
+file_path = Path(__file__).parent.parent / "Dataset" / "usecase_exp1_mustard.csv"
+sensor_to_process = -1 # set to -1 to process all sensors
 
 # --------------------------------------------------
 # Read data
@@ -32,8 +33,9 @@ print(f"Detected {n_sensors} sensors")
 # Apply force reconstruction to ALL sensors
 # --------------------------------------------------
 Thr_samples = 1500
-fr = ForceReconstructor(NW=2000, Thr_samples=Thr_samples, fifo_buffer_lenght=50, press_sigma=10, alpha=0.05,  slope_multiplier=0.3,
-                        nSamples_adaptive_offset=50, press_confirm=5, samples_after_release=200, debug=True, signal2noise_ratio=10)
+
+fr = ForceReconstructor(NW=1000, Thr_samples=Thr_samples, fifo_buffer_lenght=20, press_sigma=10, alpha=1,  slope_multiplier=0.3,
+                        nSamples_adaptive_offset=50, press_confirm=5, samples_after_release=500, debug=True, signal2noise_ratio=10)
 
 n_samples = n_samples - Thr_samples
 time_axis = time_axis[Thr_samples:]
@@ -43,10 +45,9 @@ thr_upper = np.zeros(n_sensors)
 thr_lower = np.zeros(n_sensors)
 signal_smooth_all = np.zeros((n_samples, n_sensors))
 
-ssss = 3
 
 for sensor_idx in range(n_sensors):
-    if sensor_idx != ssss and ssss >= 0:
+    if sensor_idx != sensor_to_process and sensor_to_process >= 0:
         continue  # test only sensor 8
     res = fr.integral(raw_data, sensor_idx)
     integrals[:, sensor_idx] = res["integral"]
@@ -64,7 +65,7 @@ plt.figure(figsize=(14, 8))
 # ---------- Raw signals + thresholds ----------
 plt.subplot(2, 1, 1)
 for i in range(n_sensors):
-    if i != ssss and ssss >= 0:
+    if i != sensor_to_process and sensor_to_process >= 0:
         continue  # test only sensor 8
     raw_centered = signal_smooth_all[:, i] - np.mean(signal_smooth_all[:, i])
 
@@ -83,7 +84,7 @@ plt.legend(ncol=4, fontsize=8)
 # ---------- Integral signals (unchanged) ----------
 plt.subplot(2, 1, 2)
 for i in range(n_sensors):
-    if i != ssss and ssss >= 0:
+    if i != sensor_to_process and sensor_to_process >= 0:
         continue  # test only sensor 8
     plt.plot(integrals[:, i], alpha=0.7, label=f"Integral{i}")
 
