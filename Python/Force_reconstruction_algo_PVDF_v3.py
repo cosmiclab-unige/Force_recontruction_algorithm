@@ -97,7 +97,8 @@ class ForceReconstructor:
 
         guard_counter = 0   # 👈 GUARD TIMER
         new_signal = np.zeros(N)
-
+        
+        thr = self.thr_press*10/self.press_sigma
         # ---------- LOOP ----------
         for k in range(N):
             x = signal[k] - self.adaptive_offset
@@ -112,7 +113,8 @@ class ForceReconstructor:
                 continue
 
             # --- adaptive offset ---
-            if abs(x) < self.thr_press:
+            
+            if abs(x) < thr:
                 old = self.offset_buffer[0]
                 self.offset_buffer[:-1] = self.offset_buffer[1:]
                 self.offset_buffer[-1] = x + self.adaptive_offset

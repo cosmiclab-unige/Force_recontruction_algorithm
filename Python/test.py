@@ -5,8 +5,15 @@ from Force_reconstruction_algo_PVDF_v3 import ForceReconstructor
 
 from pathlib import Path
 
-file_path = Path(__file__).parent.parent / "Dataset" / "usecase_exp1_mustard.csv"
+file_path = Path(__file__).parent.parent / "Dataset" / "usecase_exp7_spoon.csv"
 sensor_to_process = -1 # set to -1 to process all sensors
+
+Thr_samples = 1500
+
+fr = ForceReconstructor(NW=1000, Thr_samples=Thr_samples, fifo_buffer_lenght=20, 
+                        press_sigma=10, alpha=1,  slope_multiplier=0.3,
+                        nSamples_adaptive_offset=50, press_confirm=10, 
+                        samples_after_release=500, debug=True, signal2noise_ratio=10)
 
 # --------------------------------------------------
 # Read data
@@ -32,10 +39,6 @@ print(f"Detected {n_sensors} sensors")
 # --------------------------------------------------
 # Apply force reconstruction to ALL sensors
 # --------------------------------------------------
-Thr_samples = 1500
-
-fr = ForceReconstructor(NW=1000, Thr_samples=Thr_samples, fifo_buffer_lenght=20, press_sigma=10, alpha=1,  slope_multiplier=0.3,
-                        nSamples_adaptive_offset=50, press_confirm=5, samples_after_release=500, debug=True, signal2noise_ratio=10)
 
 n_samples = n_samples - Thr_samples
 time_axis = time_axis[Thr_samples:]
