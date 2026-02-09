@@ -5,7 +5,7 @@ from Force_reconstruction_algo_PVDF_v3 import ForceReconstructor
 
 from pathlib import Path
 
-file_path = Path(__file__).parent.parent / "Dataset" / "usecase_exp7_spoon.csv"
+file_path = Path(__file__).parent.parent / "Dataset" / "usecase_exp1_spoon.csv"
 sensor_to_process = -1 # set to -1 to process all sensors
 
 Thr_samples = 1500
