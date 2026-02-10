@@ -125,18 +125,18 @@ class ForceReconstructor:
 
         # ===== main loop =====
         for ns in range(self.n_sensors):
+            
+            # --- smoothing ---
+            sm = self.alpha * x_raw[ns] + (1 - self.alpha) * self.data_raw_prec[ns]
+            self.data_raw_prec[ns] = sm
+            x = sm - self.adaptive_offset[ns]
+            self.smoothed_signal[ns].append(sm)
 
             # --- guard ---
             if self.guard_counter[ns] > 0:
                 self.guard_counter[ns] -= 1
                 self.integral_out[ns].append(0.0)
                 continue
-
-            # --- smoothing ---
-            sm = self.alpha * x_raw[ns] + (1 - self.alpha) * self.data_raw_prec[ns]
-            self.data_raw_prec[ns] = sm
-            x = sm - self.adaptive_offset[ns]
-            self.smoothed_signal[ns].append(sm)
 
             # --- adaptive offset ---
             thr_adapt = self.thr_press[ns] * 10 / self.press_sigma
@@ -176,6 +176,8 @@ class ForceReconstructor:
                         )
                         self.counter[ns] = self.pre_trigger_len
                         self.previous_event_polarity[ns] = self.press_sign[ns]
+                        if self.debug:
+                            print(f"[TRIGGER] Sensor {ns} at t={self.sample_idx}")
                 else:
                     self.confirm[ns] = 0
 
@@ -223,6 +225,8 @@ class ForceReconstructor:
                 self.averagetouch[ns] = avg
                 self.validated[ns] = True
                 self.press_local_mask[ns] = True
+                if self.debug:
+                    print(f"[VALIDATED] Sensor {ns} at t={self.sample_idx}")
 
                 # ---- GLOBAL PRESS CHECK ----
                 if not self.global_press_active:
