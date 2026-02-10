@@ -4,7 +4,7 @@
 class ForceReconstructor:
     """
     REAL-TIME, MULTI-SENSOR
-    Local logic IDENTICAL to v3 + GLOBAL consensus layer.
+    Local logic IDENTICAL to v_1.4.
     """
 
     def __init__(
