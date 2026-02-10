@@ -11,7 +11,7 @@ class ForceReconstructor:
         self,
         n_sensors,
         NW=1000,
-        fifo_buffer_length=50,
+        fifo_buffer_length=20,
         Thr_samples=1500,
         press_sigma=10.0,
         press_confirm=5,
