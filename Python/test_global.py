@@ -9,7 +9,7 @@ from Force_reconstruction_algo_PVDF_v4_global import ForceReconstructor
 # ==================================================
 # CONFIG
 # ==================================================
-file_path = Path(__file__).parent.parent / "Dataset" / "usecase_exp6_mustard.csv"
+file_path = Path(__file__).parent.parent / "Dataset" / "usecase_exp6_spoon.csv"
 
 sensor_to_process = -1    # -1 = tutti i sensori
 Thr_samples = 1500
@@ -48,16 +48,18 @@ print(f"Processing {'single sensor' if single_sensor else 'all sensors'}")
 # ==================================================
 fr = ForceReconstructor(
     n_sensors=n_sensors,
-    NW=1000,
+    NW=200,
     Thr_samples=Thr_samples,
     fifo_buffer_length=20,
     press_sigma=10,
-    alpha=0.1,
+    alpha=1,
     slope_multiplier=0.3,
     nSamples_adaptive_offset=50,
     press_confirm=10,
     samples_after_release=500,
     debug=True,
+    min_press_sensors=4,
+    release_ratio=0.5,
     signal2noise_ratio=10,
 )
 

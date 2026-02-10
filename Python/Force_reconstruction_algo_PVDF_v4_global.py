@@ -4,7 +4,7 @@
 class ForceReconstructor:
     """
     REAL-TIME, MULTI-SENSOR
-    LOGICALLY IDENTICAL to v3 (offline).
+    Local logic IDENTICAL to v3 + GLOBAL consensus layer.
     """
 
     def __init__(
@@ -21,7 +21,10 @@ class ForceReconstructor:
         samples_after_release=100,
         debug=False,
         signal2noise_ratio=10.0,
+        min_press_sensors=2,
+        release_ratio=0.5,
     ):
+        # -------- parameters --------
         self.n_sensors = n_sensors
         self.NW = NW
         self.fifo_buffer_length = fifo_buffer_length
@@ -33,15 +36,18 @@ class ForceReconstructor:
         self.debug = debug
         self.signal2noise_ratio = signal2noise_ratio
 
+        self.min_press_sensors = min_press_sensors
+        self.release_ratio = release_ratio
+
         self.pre_trigger_len = press_confirm + 5
         self.nSamples_adaptive_offset = nSamples_adaptive_offset
         self.samples_after_release = samples_after_release
 
-        # ---------------- NOISE ----------------
+        # -------- noise --------
         self.noise_counter = 0
         self.noise_buffer = np.zeros((Thr_samples, n_sensors))
 
-        # ---------------- BUFFERS ----------------
+        # -------- buffers --------
         self.offset_buffer = np.zeros((nSamples_adaptive_offset, n_sensors))
         self.adaptive_offset = np.zeros(n_sensors)
 
@@ -49,7 +55,7 @@ class ForceReconstructor:
         self.press_buf = np.zeros((NW, n_sensors))
         self.fifo = np.zeros((fifo_buffer_length, n_sensors))
 
-        # ---------------- STATE ----------------
+        # -------- local state --------
         self.integral = np.zeros(n_sensors)
         self.counter = np.zeros(n_sensors, dtype=int)
         self.confirm = np.zeros(n_sensors, dtype=int)
@@ -60,7 +66,6 @@ class ForceReconstructor:
 
         self.triggered = np.zeros(n_sensors, dtype=bool)
         self.validated = np.zeros(n_sensors, dtype=bool)
-        self.event_discarded = np.zeros(n_sensors, dtype=bool)
         self.armed = np.ones(n_sensors, dtype=bool)
 
         self.press_sign = np.ones(n_sensors)
@@ -69,13 +74,17 @@ class ForceReconstructor:
         self.averagetouch = np.zeros(n_sensors)
 
         self.guard_counter = np.zeros(n_sensors, dtype=int)
-        self.event_start_idx = np.full(n_sensors, None)
         self.previous_event_polarity = np.zeros(n_sensors)
 
         self.data_raw_prec = np.zeros(n_sensors)
         self.sample_idx = 0
 
-        # ---------------- OUTPUT ----------------
+        # -------- GLOBAL CONSENSUS --------
+        self.global_press_active = False
+        self.press_local_mask = np.zeros(n_sensors, dtype=bool)
+        self.release_local_mask = np.zeros(n_sensors, dtype=bool)
+
+        # -------- output --------
         self.integral_out = [[] for _ in range(n_sensors)]
         self.smoothed_signal = [[] for _ in range(n_sensors)]
 
@@ -101,7 +110,7 @@ class ForceReconstructor:
         """
         self.sample_idx += 1
 
-        # ---------- NOISE LEARNING ----------
+        # ===== noise learning =====
         if self.noise_counter < self.Thr_samples:
             self.noise_buffer[self.noise_counter] = x_raw
             self.noise_counter += 1
@@ -114,30 +123,32 @@ class ForceReconstructor:
                 self.integral_out[ns].append(0.0)
             return
 
-        # ---------- MAIN LOOP ----------
+        # ===== main loop =====
         for ns in range(self.n_sensors):
 
-            # ---- GUARD ----
+            # --- guard ---
             if self.guard_counter[ns] > 0:
                 self.guard_counter[ns] -= 1
                 self.integral_out[ns].append(0.0)
                 continue
 
-            # ---- SMOOTH ----
+            # --- smoothing ---
             sm = self.alpha * x_raw[ns] + (1 - self.alpha) * self.data_raw_prec[ns]
             self.data_raw_prec[ns] = sm
             x = sm - self.adaptive_offset[ns]
-            self.smoothed_signal[ns].append(x)
+            self.smoothed_signal[ns].append(sm)
 
-            # ---- ADAPTIVE OFFSET ----
-            thr = self.thr_press[ns] * 10 / self.press_sigma
-            if abs(x) < thr:
+            # --- adaptive offset ---
+            thr_adapt = self.thr_press[ns] * 10 / self.press_sigma
+            if abs(x) < thr_adapt:
                 old = self.offset_buffer[0, ns]
                 self.offset_buffer[:-1, ns] = self.offset_buffer[1:, ns]
                 self.offset_buffer[-1, ns] = x + self.adaptive_offset[ns]
-                self.adaptive_offset[ns] += (self.offset_buffer[-1, ns] - old) / self.nSamples_adaptive_offset
+                self.adaptive_offset[ns] += (
+                    self.offset_buffer[-1, ns] - old
+                ) / self.nSamples_adaptive_offset
 
-            # ---- PRE BUFFER ----
+            # --- pre buffer ---
             self.pre_buf[:-1, ns] = self.pre_buf[1:, ns]
             self.pre_buf[-1, ns] = x
 
@@ -157,22 +168,14 @@ class ForceReconstructor:
                         if self.press_sign[ns] == 0:
                             self.press_sign[ns] = np.sign(x)
 
-                        if (
-                            self.event_discarded[ns]
-                            and self.press_sign[ns] != self.previous_event_polarity[ns]
-                        ):
-                            self._reset(ns, guard=True)
-                            self.integral_out[ns].append(0.0)
-                            continue
-
-                        self.event_discarded[ns] = False
-                        self.integral[ns] = np.sum(self.press_sign[ns] * self.pre_buf[:, ns])
+                        self.integral[ns] = np.sum(
+                            self.press_sign[ns] * self.pre_buf[:, ns]
+                        )
                         self.press_buf[: self.pre_trigger_len, ns] = np.cumsum(
                             self.press_sign[ns] * self.pre_buf[:, ns]
                         )
                         self.counter[ns] = self.pre_trigger_len
                         self.previous_event_polarity[ns] = self.press_sign[ns]
-                        self.event_start_idx[ns] = self.sample_idx
                 else:
                     self.confirm[ns] = 0
 
@@ -183,56 +186,53 @@ class ForceReconstructor:
             self.integral[ns] += self.press_sign[ns] * x
 
             if self.integral[ns] < 0:
-                self.event_discarded[ns] = True
-                self.previous_event_polarity[ns] *= -1
-                self._reset(ns, guard=True)
+                self._reset_local(ns, guard=True)
                 self.integral_out[ns].append(0.0)
                 if self.debug:
-                    print(
-                        f"[ROLLBACK] t={self.sample_idx:6d} "
-                        f"S{ns:02d} integral<0"
-                    )
+                    print(f"[RESET] Sensor {ns} at t={self.sample_idx} (negative integral)")
                 continue
 
-            self.integral_out[ns].append(self.integral[ns])
+            
             self.max_post[ns] = max(self.max_post[ns], abs(x))
-
+            value_integral_out = self.integral[ns]
             if self.counter[ns] < self.NW:
                 self.press_buf[self.counter[ns], ns] = self.integral[ns]
                 self.counter[ns] += 1
+                value_integral_out = 0.0
 
+            self.integral_out[ns].append(value_integral_out)
             # ================= SECOND CROSS =================
             if abs(x) < self.thr_press[ns] and not self.second_cross[ns]:
                 self.idx_second_cross[ns] = self.counter[ns]
                 self.second_cross[ns] = True
                 self.press_integral[ns] = self.integral[ns]
 
-            # ================= VALIDATION =================
+            # ================= PRESS VALIDATION =================
             if not self.validated[ns] and self.counter[ns] == self.NW:
                 idx = np.argmax(self.press_buf[: self.idx_second_cross[ns], ns])
                 avg = (-self.press_buf[0, ns] + self.press_buf[idx, ns]) / (idx + 1)
 
                 if self.max_post[ns] < self.signal2noise_ratio * self.max_noise[ns]:
-                    self.event_discarded[ns] = True
-                    self.integral_out[ns][-self.counter[ns] :] = [0.0] * self.counter[ns]
-                    self._reset(ns, guard=False)
+                    self._reset_local(ns, guard=False)
                     if self.debug:
                         print(
-                            f"[DISCARD] t={self.sample_idx:6d} "
-                            f"S{ns:02d} LOW SNR"
+                            f"[DISCARD] Sensor {ns} at t={self.sample_idx} LOW SNR"
                         )
                     continue
 
                 self.averagetouch[ns] = avg
                 self.validated[ns] = True
-                if self.debug:
-                    print(
-                        f"[VALIDATED] t={self.sample_idx:6d} "
-                        f"S{ns:02d} avg_touch={avg:.6f} "
-                    )
+                self.press_local_mask[ns] = True
+
+                # ---- GLOBAL PRESS CHECK ----
+                if not self.global_press_active:
+                    if np.count_nonzero(self.press_local_mask) >= self.min_press_sensors:
+                        self.global_press_active = True
+                        if self.debug:
+                            print(f"[GLOBAL PRESS] t={self.sample_idx}")
 
             # ================= RELEASE =================
-            if self.validated[ns]:
+            if self.validated[ns] and self.global_press_active:
                 if self.fifo_idx[ns] < self.fifo_buffer_length:
                     self.fifo[self.fifo_idx[ns], ns] = self.integral[ns]
                     self.fifo_idx[ns] += 1
@@ -240,22 +240,28 @@ class ForceReconstructor:
                     self.fifo[:-1, ns] = self.fifo[1:, ns]
                     self.fifo[-1, ns] = self.integral[ns]
 
-                if self.fifo_idx[ns] == self.fifo_buffer_length or self.integral[ns] == 0:
-                    avg = (self.fifo[-1, ns] - self.fifo[0, ns]) / self.fifo_buffer_length
+                if self.fifo_idx[ns] == self.fifo_buffer_length:
+                    slope = (
+                        self.fifo[-1, ns] - self.fifo[0, ns]
+                    ) / self.fifo_buffer_length
+
                     if (
-                        avg < -self.slope_multiplier * abs(self.averagetouch[ns])
-                        or self.integral[ns] > self.press_integral[ns] * 1.5
-                        or self.integral[ns] < self.press_integral[ns] * 0.5
+                        slope < -self.slope_multiplier * abs(self.averagetouch[ns])
+                        or self.integral[ns] > 1.5 * self.press_integral[ns]
+                        or self.integral[ns] < 0.5 * self.press_integral[ns]
                     ):
-                        self._reset(ns, guard=True)
-                        if self.debug:
-                            print(
-                                f"[RELEASE] t={self.sample_idx:6d} "
-                                f"S{ns:02d} avg_slope={avg:.6f} "
-                            )
+                        self.release_local_mask[ns] = True
+
+                        n_press = np.count_nonzero(self.press_local_mask)
+                        n_release = np.count_nonzero(self.release_local_mask)
+
+                        if n_press > 0 and n_release / n_press >= self.release_ratio:
+                            if self.debug:
+                                print(f"[GLOBAL RELEASE] t={self.sample_idx}")
+                            self._reset_all_global()
 
     # --------------------------------------------------
-    def _reset(self, ns, guard):
+    def _reset_local(self, ns, guard):
         self.integral[ns] = 0.0
         self.counter[ns] = 0
         self.confirm[ns] = 0
@@ -266,8 +272,15 @@ class ForceReconstructor:
         self.triggered[ns] = False
         self.validated[ns] = False
         self.armed[ns] = True
-        self.event_start_idx[ns] = None
         self.second_cross[ns] = False
         self.idx_second_cross[ns] = 0
-
         self.guard_counter[ns] = self.samples_after_release if guard else 0
+
+    # --------------------------------------------------
+    def _reset_all_global(self):
+        for ns in range(self.n_sensors):
+            self._reset_local(ns, guard=True)
+
+        self.press_local_mask[:] = False
+        self.release_local_mask[:] = False
+        self.global_press_active = False
