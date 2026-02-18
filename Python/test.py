@@ -1,7 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import pandas as pd
-from Force_reconstruction_algo_PVDF_v3 import ForceReconstructor   
+from Force_reconstruction_algo_PVDF_v4_global import ForceReconstructor   
 
 from pathlib import Path
 

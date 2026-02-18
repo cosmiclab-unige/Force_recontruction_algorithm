@@ -1,17 +1,17 @@
-import numpy as np
+﻿import numpy as np
 
 
 class ForceReconstructor:
     """
     REAL-TIME, MULTI-SENSOR
-    Local logic IDENTICAL to v3 + GLOBAL consensus layer.
+    Local logic IDENTICAL to v_1.4.
     """
 
     def __init__(
         self,
         n_sensors,
         NW=1000,
-        fifo_buffer_length=50,
+        fifo_buffer_length=20,
         Thr_samples=1500,
         press_sigma=10.0,
         press_confirm=5,
