@@ -3,7 +3,7 @@ import matplotlib.pyplot as plt
 import pandas as pd
 from pathlib import Path
 
-from force_reconstructor import ForceReconstructor
+from force_reconstructor_using_blocks import ForceReconstructor
 
 
 # ==================================================
