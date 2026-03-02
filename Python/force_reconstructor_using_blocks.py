@@ -4,9 +4,10 @@ import numpy as np
 class ForceReconstructor:
     """
     REAL-TIME, MULTI-SENSOR
-    Logica IDENTICA alla tua versione.
-    Nessuna append infinita.
-    Restituisce direttamente l'integrale corrente.
+    Logica originale invariata.
+    Aggiunta:
+    - Output solo con global_press_active
+    - Timeout globale consenso (NW campioni)
     """
 
     def __init__(
@@ -85,6 +86,10 @@ class ForceReconstructor:
         self.press_local_mask = np.zeros(n_sensors, dtype=bool)
         self.release_local_mask = np.zeros(n_sensors, dtype=bool)
 
+        # --- NEW: global consensus window ---
+        self.global_window_active = False
+        self.global_window_counter = 0
+
         # -------- OUTPUT --------
         self.current_output = np.zeros(n_sensors)
 
@@ -108,6 +113,14 @@ class ForceReconstructor:
 
         self.sample_idx += 1
         self.current_output[:] = 0.0
+
+        # ---- GLOBAL CONSENSUS TIMEOUT ----
+        if self.global_window_active and not self.global_press_active:
+            self.global_window_counter += 1
+            if self.global_window_counter >= self.NW:
+                self._reset_all_global()
+                self.global_window_active = False
+                self.global_window_counter = 0
 
         # ===== noise learning =====
         if self.noise_counter < self.Thr_samples:
@@ -183,7 +196,11 @@ class ForceReconstructor:
                 self.press_buf[self.counter[ns], ns] = self.integral[ns]
                 self.counter[ns] += 1
             else:
-                self.current_output[ns] = self.integral[ns]
+                # OUTPUT SOLO SE GLOBAL ATTIVO
+                if self.global_press_active:
+                    self.current_output[ns] = self.integral[ns]
+                else:
+                    self.current_output[ns] = 0.0
 
             # SECOND CROSS
             if abs(x) < self.thr_press[ns] and not self.second_cross[ns]:
@@ -209,9 +226,16 @@ class ForceReconstructor:
                 self.validated[ns] = True
                 self.press_local_mask[ns] = True
 
+                # START GLOBAL WINDOW
+                if not self.global_window_active:
+                    self.global_window_active = True
+                    self.global_window_counter = 0
+
                 if not self.global_press_active:
                     if np.count_nonzero(self.press_local_mask) >= self.min_press_sensors:
                         self.global_press_active = True
+                        self.global_window_active = False
+                        self.global_window_counter = 0
 
             # RELEASE
             if self.validated[ns] and self.global_press_active:
@@ -246,7 +270,6 @@ class ForceReconstructor:
     def process_block(self, block):
         block = np.asarray(block)
         N = block.shape[0]
-
         out = np.zeros((N, self.n_sensors))
         for i in range(N):
             out[i] = self.integral_step(block[i])
@@ -276,3 +299,5 @@ class ForceReconstructor:
         self.press_local_mask[:] = False
         self.release_local_mask[:] = False
         self.global_press_active = False
+        self.global_window_active = False
+        self.global_window_counter = 0

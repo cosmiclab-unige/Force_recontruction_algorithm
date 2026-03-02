@@ -58,7 +58,7 @@ fr = ForceReconstructor(
     press_confirm=5,
     samples_after_release=500,
     debug=True,
-    min_press_sensors=4,
+    min_press_sensors=6,
     release_ratio=0.5,
     signal2noise_ratio=10,
 )
