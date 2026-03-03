@@ -9,7 +9,7 @@ from force_reconstructor_using_blocks import ForceReconstructor
 # ==================================================
 # CONFIG
 # ==================================================
-file_path = Path(__file__).parent.parent / "Dataset" / "usecase_exp2_spoon.csv"
+file_path = Path(__file__).parent.parent / "Dataset" / "sensor_force_data.csv"
 
 sensor_to_process = -1    # -1 = tutti i sensori
 Thr_samples = 1500
@@ -97,28 +97,50 @@ print("Force reconstruction completed")
 # PLOT (ONLY RECONSTRUCTED OUTPUT)
 # ==================================================
 
-plt.figure(figsize=(12, 6))
+fig, axs = plt.subplots(2, 1, figsize=(12, 8), sharex=True)
 
+# ---------- Top subplot: RAW ----------
 if single_sensor:
-    plt.plot(
+    axs[0].plot(
+        raw_data[:, 0]-np.mean(raw_data[:,0]),
+        linewidth=1.5,
+        label=f"Raw S{sensor_to_process}",
+    )
+else:
+    for i in range(n_sensors):
+        axs[0].plot(
+            raw_data[:, i]-np.mean(raw_data[:,i]),
+            linewidth=1.0,
+            alpha=0.7,
+            label=f"S{i}",
+        )
+
+axs[0].set_title("Raw Data")
+axs[0].set_ylabel("Raw output")
+axs[0].grid(True)
+axs[0].legend(ncol=4, fontsize=8)
+
+# ---------- Bottom subplot: INTEGRAL ----------
+if single_sensor:
+    axs[1].plot(
         integrals[:, 0],
         linewidth=1.5,
         label=f"Integral S{sensor_to_process}",
     )
 else:
     for i in range(n_sensors):
-        plt.plot(
+        axs[1].plot(
             integrals[:, i],
             linewidth=1.0,
             alpha=0.7,
             label=f"S{i}",
         )
 
-plt.title("Reconstructed Force (Block Processing)")
-plt.xlabel("Sample index")
-plt.ylabel("Integral output")
-plt.grid(True)
-plt.legend(ncol=4, fontsize=8)
+axs[1].set_title("Reconstructed Force (Block Processing)")
+axs[1].set_xlabel("Sample index")
+axs[1].set_ylabel("Integral output")
+axs[1].grid(True)
+axs[1].legend(ncol=4, fontsize=8)
 
 plt.tight_layout()
 plt.show()
