@@ -15,6 +15,7 @@ df = pd.read_csv(
     file_path,
     sep=r"\t",        # whitespace separator
     header=None        # no header in file
+    decimal=","        # comma as decimal separator
 )
 # --------------------------------------------------
 # Timestamp handling
