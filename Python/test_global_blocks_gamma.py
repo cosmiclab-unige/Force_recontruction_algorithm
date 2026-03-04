@@ -3,13 +3,13 @@ import matplotlib.pyplot as plt
 import pandas as pd
 from pathlib import Path
 
-from force_reconstructor_using_blocks import ForceReconstructor
+from force_reconstructor_using_blocks_Hannes import ForceReconstructor
 
 
 # ==================================================
 # CONFIG
 # ==================================================
-file_path = Path(__file__).parent.parent / "Hannes_Dataset" / "pvdf_13"
+file_path = Path(__file__).parent.parent / "Hannes_Dataset" / "pvdf_10"
 
 sensor_to_process = -1    # -1 = tutti i sensori
 Thr_samples = 1500
@@ -50,14 +50,11 @@ fr = ForceReconstructor(
     n_sensors=n_sensors,
     NW=500,
     Thr_samples=Thr_samples,
-    fifo_buffer_length=20,
     press_sigma=10,
     alpha=0.1,
-    slope_multiplier=1,
     nSamples_adaptive_offset=50,
     press_confirm=2,
     samples_after_release=500,
-    debug=True,
     min_press_sensors=3,
     release_ratio=0.5,
     signal2noise_ratio=10,
