@@ -58,7 +58,7 @@ fr = ForceReconstructor(
     samples_after_release=500,
     min_press_sensors=3,
     release_ratio=0.5,
-    signal2noise_ratio=10,
+    signal2noise_ratio=5,
 )
 
 
@@ -71,7 +71,6 @@ BLOCK_SIZE = 100  # prova 20, 50, 100
 print(f"Processing in blocks of {BLOCK_SIZE} samples")
 
 integrals = np.zeros((n_samples, n_sensors))
-measurements = np.zeros((n_samples, n_sensors))
 
 for start in range(0, n_samples, BLOCK_SIZE):
     stop = min(start + BLOCK_SIZE, n_samples)
@@ -80,10 +79,9 @@ for start in range(0, n_samples, BLOCK_SIZE):
     if single_sensor:
         block = block[:, sensor_to_process:sensor_to_process+1]
 
-    out, meas = fr.process_block(block)
+    out = fr.process_block(block)
 
     integrals[start:stop] = out
-    measurements[start:stop] = meas
 
 
 # ==================================================
@@ -104,14 +102,14 @@ else:
 # ---------- Top subplot: RAW ----------
 if single_sensor:
     axs[0].plot(
-        measurements[Thr_samples:, 0],
+        raw_data[Thr_samples:, 0],
         linewidth=1.5,
         label=f"Raw S{sensor_to_process}",
     )
 else:
     for i in range(n_sensors):
         axs[0].plot(
-            measurements[Thr_samples:, i],
+            raw_data[Thr_samples:, i],
             linewidth=1.0,
             alpha=0.7,
             label=f"S{i}",
@@ -154,6 +152,10 @@ if plot_force:
                 alpha=0.7,
                 label=f"S{i}",
             )
+    axs[2].set_title("Measured Force")
+    axs[2].set_xlabel("Sample index")
+    axs[2].set_ylabel("Force output")
+    axs[2].grid(True)
 
 # ---------- Plot thresholds ----------
 if single_sensor:

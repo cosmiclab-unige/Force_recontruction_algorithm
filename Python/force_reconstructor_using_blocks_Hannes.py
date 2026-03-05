@@ -8,6 +8,7 @@ class ForceReconstructor:
         n_sensors,
         NW=1000,
         Thr_samples=1500,
+        warmup_samples=500,
         press_sigma=10.0,
         press_confirm=5,
         alpha=1.0,
@@ -31,6 +32,8 @@ class ForceReconstructor:
         self.release_ratio = release_ratio
 
         # ---------------- Noise ----------------
+        self.warmup_samples = warmup_samples
+        self.warmup_counter = 0
         self.noise_counter = 0
         self.noise_buffer = np.zeros((Thr_samples, n_sensors))
 
@@ -57,7 +60,6 @@ class ForceReconstructor:
 
         # ---------------- Output ----------------
         self.current_output = np.zeros(n_sensors)
-        self.current_measurement = np.zeros(n_sensors)
 
     # ==================================================
     def compute_thresholds(self):
@@ -80,7 +82,11 @@ class ForceReconstructor:
     def integral_step(self, x_raw):
 
         self.current_output[:] = 0.0
-        self.current_measurement = x_raw.copy()
+        # ---------------- Warm-up (scarto iniziale) ----------------
+        if self.warmup_counter < self.warmup_samples:
+            self.warmup_counter += 1
+            self.data_raw_prec = x_raw.copy()
+            return self.current_output.copy()
 
         # ---------------- Noise learning ----------------
         if self.noise_counter < self.Thr_samples:
@@ -91,9 +97,8 @@ class ForceReconstructor:
             if self.noise_counter == self.Thr_samples:
                 self.compute_thresholds()
                 self.data_raw_prec = x_raw.copy()
-                self.current_measurement[:] = x_raw - self.adaptive_offset
 
-            return self.current_output.copy(), self.current_measurement.copy()
+            return self.current_output.copy()
 
         # ==================================================
         for ns in range(self.n_sensors):
@@ -102,7 +107,6 @@ class ForceReconstructor:
             sm = self.alpha * x_raw[ns] + (1 - self.alpha) * self.data_raw_prec[ns]
             self.data_raw_prec[ns] = sm
             x = sm - self.adaptive_offset[ns]
-            self.current_measurement[ns] = x
 
             # -------- Guard --------
             if self.guard_counter[ns] > 0:
@@ -195,7 +199,25 @@ class ForceReconstructor:
                 self.integral[mask] / self.max_integral[mask]
             )
 
-        return self.current_output.copy(), self.current_measurement.copy()
+        return self.current_output.copy()
+        
+    # ==================================================    
+    def recalibrate_thresholds(self):
+        print(">>> Ricalibrazione soglie avviata")
+
+        # reset noise learning
+        self.noise_counter = 0
+        self.noise_buffer[:] = 0.0
+
+        # reset stati globali e locali
+        self._reset_all_global()
+
+        # reset offset
+        self.offset_buffer[:] = 0.0
+        self.adaptive_offset[:] = 0.0
+
+        # reset memoria filtro
+        self.data_raw_prec[:] = 0.0
 
     # ==================================================
     def process_block(self, block):
@@ -204,12 +226,11 @@ class ForceReconstructor:
         N = block.shape[0]
 
         out = np.zeros((N, self.n_sensors))
-        meas = np.zeros((N, self.n_sensors))
 
         for i in range(N):
-            out[i], meas[i] = self.integral_step(block[i])
+            out[i, :] = self.integral_step(block[i])
 
-        return out, meas
+        return out
 
     # ==================================================
     def _reset_local(self, ns):
