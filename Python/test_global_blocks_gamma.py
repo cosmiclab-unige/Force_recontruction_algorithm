@@ -9,12 +9,12 @@ from force_reconstructor_using_blocks_Hannes import ForceReconstructor
 # ==================================================
 # CONFIG
 # ==================================================
-file_path = Path(__file__).parent.parent / "Hannes_Dataset" / "pvdf_unified"
+file_path = Path(__file__).parent.parent / "Hannes_Dataset" / "pvdf_force_1"
 
 sensor_to_process = -1    # -1 = tutti i sensori
 Thr_samples = 1500
 n_sensors_dataset = 8
-
+plot_force = True if "force" in file_path.stem else False
 # ==================================================
 # READ DATA
 # ==================================================
@@ -31,7 +31,8 @@ timestamp = df.iloc[:, 0].astype(float).values   # first column
 timestamp = timestamp - timestamp[0]             # subtract first value
 time_axis = timestamp / 1e6                 # optional: ms -> seconds
 
-raw_data = df.iloc[:, 1:n_sensors_dataset+1].astype(float).values  # columns 32..47 (16 sensors)
+raw_data = df.iloc[:, 1:n_sensors_dataset+1].astype(float).values 
+force_data = df.iloc[:, n_sensors_dataset+1:n_sensors_dataset*2+1].astype(float).values
 
 n_samples, n_sensors = raw_data.shape
 # ==================================================
@@ -95,8 +96,10 @@ print("Force reconstruction completed")
 # ==================================================
 # PLOT (ONLY RECONSTRUCTED OUTPUT)
 # ==================================================
-
-fig, axs = plt.subplots(2, 1, figsize=(12, 8), sharex=True)
+if plot_force:
+    fig, axs = plt.subplots(3, 1, figsize=(12, 8), sharex=True)
+else:
+    fig, axs = plt.subplots(2, 1, figsize=(12, 6), sharex=True)
 
 # ---------- Top subplot: RAW ----------
 if single_sensor:
@@ -134,6 +137,23 @@ else:
             alpha=0.7,
             label=f"S{i}",
         )
+
+# ---------- Bottom subplot: FORCE ----------
+if plot_force:
+    if single_sensor:
+        axs[2].plot(
+            force_data[Thr_samples:, 0],
+            linewidth=1.5,
+            label=f"Force S{sensor_to_process}",
+        )
+    else:
+        for i in range(n_sensors):
+            axs[2].plot(
+                force_data[Thr_samples:, i],
+                linewidth=1.0,
+                alpha=0.7,
+                label=f"S{i}",
+            )
 
 # ---------- Plot thresholds ----------
 if single_sensor:
