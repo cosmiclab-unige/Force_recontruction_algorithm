@@ -9,7 +9,7 @@ from force_reconstructor_using_blocks_Hannes import ForceReconstructor
 # ==================================================
 # CONFIG
 # ==================================================
-file_path = Path(__file__).parent.parent / "Hannes_Dataset" / "pvdf_10"
+file_path = Path(__file__).parent.parent / "Hannes_Dataset" / "pvdf_unified"
 
 sensor_to_process = -1    # -1 = tutti i sensori
 Thr_samples = 1500

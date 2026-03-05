@@ -1,4 +1,3 @@
-
 import numpy as np
 
 
@@ -31,15 +30,15 @@ class ForceReconstructor:
         self.min_press_sensors = min_press_sensors
         self.release_ratio = release_ratio
 
-        # ---------- Noise ----------
+        # ---------------- Noise ----------------
         self.noise_counter = 0
         self.noise_buffer = np.zeros((Thr_samples, n_sensors))
 
-        # ---------- Adaptive offset ----------
+        # ---------------- Adaptive offset ----------------
         self.offset_buffer = np.zeros((nSamples_adaptive_offset, n_sensors))
         self.adaptive_offset = np.zeros(n_sensors)
 
-        # ---------- Local state ----------
+        # ---------------- Local state ----------------
         self.phase = np.zeros(n_sensors, dtype=int)  # 0 idle,1 press,2 hold,3 release
         self.integral = np.zeros(n_sensors)
         self.max_integral = np.zeros(n_sensors)
@@ -47,16 +46,16 @@ class ForceReconstructor:
         self.confirm = np.zeros(n_sensors, dtype=int)
         self.guard_counter = np.zeros(n_sensors, dtype=int)
 
-        # ---------- Global ----------
+        # ---------------- Global state ----------------
         self.global_press_active = False
+        self.global_phase = 0
         self.press_local_mask = np.zeros(n_sensors, dtype=bool)
         self.release_local_mask = np.zeros(n_sensors, dtype=bool)
-        self.global_phase = 0
 
-        # ---------- Signal memory ----------
+        # ---------------- Signal memory ----------------
         self.data_raw_prec = np.zeros(n_sensors)
 
-        # ---------- Output ----------
+        # ---------------- Output ----------------
         self.current_output = np.zeros(n_sensors)
         self.current_measurement = np.zeros(n_sensors)
 
@@ -69,13 +68,12 @@ class ForceReconstructor:
 
         self.thr_press = self.press_sigma * sigma
 
-        # energia massima del rumore (robusta)
         self.max_noise = np.mean(
-            np.sort(np.abs(noise - mean), axis=0)[int(0.99 * len(noise)) :],
+            np.sort(np.abs(noise - mean), axis=0)[int(0.99 * len(noise)):],
             axis=0,
         )
 
-        self.offset_buffer[:] = noise[-self.nSamples_adaptive_offset :]
+        self.offset_buffer[:] = noise[-self.nSamples_adaptive_offset:]
         self.adaptive_offset = np.mean(self.offset_buffer, axis=0)
 
     # ==================================================
@@ -84,8 +82,9 @@ class ForceReconstructor:
         self.current_output[:] = 0.0
         self.current_measurement = x_raw.copy()
 
-        # ---------- Noise learning ----------
+        # ---------------- Noise learning ----------------
         if self.noise_counter < self.Thr_samples:
+
             self.noise_buffer[self.noise_counter] = x_raw
             self.noise_counter += 1
 
@@ -96,75 +95,81 @@ class ForceReconstructor:
 
             return self.current_output.copy(), self.current_measurement.copy()
 
-        # ---------- Main loop ----------
+        # ==================================================
         for ns in range(self.n_sensors):
 
-            # Filtering
+            # -------- Filtering --------
             sm = self.alpha * x_raw[ns] + (1 - self.alpha) * self.data_raw_prec[ns]
             self.data_raw_prec[ns] = sm
             x = sm - self.adaptive_offset[ns]
             self.current_measurement[ns] = x
 
-            # Guard
+            # -------- Guard --------
             if self.guard_counter[ns] > 0:
                 self.guard_counter[ns] -= 1
                 continue
 
-            # ================= STATE MACHINE =================
-
-            # -------- IDLE --------
+            # ================= IDLE =================
             if self.phase[ns] == 0:
-                # BLOCCO se evento globale attivo
+
                 if self.global_phase == 1:
                     continue
 
                 if abs(x) > self.thr_press[ns]:
                     self.confirm[ns] += 1
-                    if self.confirm[ns] >= self.press_confirm:
-                        self.phase[ns] = 1
-                        self.integral[ns] = 0.0
-                        self.counter[ns] = 0
-                        self.confirm[ns] = 0
                 else:
                     self.confirm[ns] = 0
+
+                if self.confirm[ns] >= self.press_confirm:
+                    self.phase[ns] = 1
+                    self.integral[ns] = 0.0
+                    self.counter[ns] = 0
+                    self.confirm[ns] = 0
+
                 continue
 
-            # -------- PRESS --------
+            # ================= PRESS =================
             if self.phase[ns] == 1:
 
                 self.integral[ns] += abs(x)
+
+                # aggiorna massimo in tempo reale
+                self.max_integral[ns] = max(self.integral[ns], self.max_integral[ns])
+
                 self.counter[ns] += 1
 
                 if self.counter[ns] >= self.NW:
 
-                    # VALIDAZIONE ENERGETICA
-                    if (self.integral[ns] > self.signal2noise_ratio * self.max_noise[ns]):
+                    if self.integral[ns] > self.signal2noise_ratio * self.max_noise[ns]:
+
                         self.phase[ns] = 2
                         self.press_local_mask[ns] = True
 
-                        if (not self.global_press_active and np.count_nonzero(self.press_local_mask) >= self.min_press_sensors): 
+                        if (not self.global_press_active and
+                            np.count_nonzero(self.press_local_mask) >= self.min_press_sensors):
+
                             self.global_press_active = True
                             self.global_phase = 1
                     else:
-                        # falso evento
                         self._reset_local(ns)
 
                 continue
 
-            # -------- HOLD --------
+            # ================= HOLD =================
             if self.phase[ns] == 2:
 
                 if abs(x) > self.thr_press[ns]:
                     self.confirm[ns] += 1
-                    if self.confirm[ns] >= self.press_confirm:
-                        self.phase[ns] = 3
-                        self.confirm[ns] = 0
-                        self.max_integral[ns] = max(self.max_integral[ns], self.integral[ns])
                 else:
                     self.confirm[ns] = 0
+
+                if self.confirm[ns] >= self.press_confirm:
+                    self.phase[ns] = 3
+                    self.confirm[ns] = 0
+
                 continue
 
-            # -------- RELEASE --------
+            # ================= RELEASE =================
             if self.phase[ns] == 3:
 
                 self.integral[ns] -= abs(x)
@@ -173,18 +178,22 @@ class ForceReconstructor:
                     self.release_local_mask[ns] = True
                     self._reset_local(ns)
 
-                # GLOBAL RELEASE
+                # ---- Global release ----
                 n_press = np.count_nonzero(self.press_local_mask)
                 n_release = np.count_nonzero(self.release_local_mask)
 
-                if (n_press > 0 and n_release / n_press >= self.release_ratio):
+                if n_press > 0 and n_release / n_press >= self.release_ratio:
                     self._reset_all_global()
 
                 continue
 
-        # Output globale
+        # ================= GLOBAL OUTPUT =================
         if self.global_press_active:
-            self.current_output[:] = self.integral
+
+            mask = self.max_integral > 1e-9
+            self.current_output[mask] = (
+                self.integral[mask] / self.max_integral[mask]
+            )
 
         return self.current_output.copy(), self.current_measurement.copy()
 
