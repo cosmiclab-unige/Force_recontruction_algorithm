@@ -1,0 +1,31 @@
+# Python
+__pycache__/
+*.py[cod]
+
+# LabVIEW machine-specific files
+*.lvlps
+*.aliases
+
+# LabVIEW build output
+PVDF Force Reconstruction Application/
+
+# macOS
+.DS_Store
+__MACOSX/
+
+# STM32CubeIDE build output and machine-specific debug configs
+Firmware/Debug/
+Firmware/Release/
+*.launch
+
+# LaTeX build output
+*.aux
+*.fdb_latexmk
+*.fls
+*.log
+*.out
+*.synctex.gz
+*.toc
+
+# Acquisitions saved by Scripts/SerialCommunication.py
+acquisizioni/
