@@ -82,10 +82,8 @@ You need [STM32CubeIDE](https://www.st.com/en/development-tools/stm32cubeide.htm
 |---|---|
 | **MCU** | STM32H742VGTx (LQFP100) |
 | **Firmware package** | STM32Cube FW_H7 V1.12.1 |
-| **Compiler** | GCC 13.3 for the original build, targeting Cortex-M7 with `fpv5-d16` hard float |
+| **Target** | Cortex-M7 with `fpv5-d16` hard float |
 | **Serial link** | USART1, 3 Mbit/s, 8N1 |
-
-> **Building with GCC 14 or newer:** `main.c` and `stm32h7xx_it.c` call `atoi`, `memcpy` and `strncmp` without including their headers, which is a compile error from GCC 14 onwards. Add `-Wno-error=implicit-function-declaration` to the compiler flags, or include `<stdlib.h>` and `<string.h>` in those files.
 
 > **Regenerating code from the `.ioc`:** STM32CubeMX only preserves code inside `USER CODE` blocks. Check that your changes are inside them before regenerating.
 
@@ -132,11 +130,8 @@ If you run the script cell by cell (`# %%`) in an editor, set the file through `
 
 ### Optional: Python reconstructor server
 
-`server_Hannes.py` needs an older matplotlib because it uses `cm.get_cmap`, which was removed in matplotlib 3.9. That in turn means Python 3.12 or earlier. This combination is known to work:
-
 ```bash
-# Python 3.12
-pip install "matplotlib<3.9" "numpy<2"
+pip install numpy matplotlib
 
 python Scripts/server_Hannes.py
 ```
@@ -295,7 +290,6 @@ The server's parameters are set in the script and differ from the firmware's def
 - **Channel selection doesn't affect the force.** The reconstructor always reads the first `n_sensors` SPI channels, whichever channels `start` selected for transmission.
 - **Bandwidth.** Sending all 64 channels with 64 force values would need about 4.2 Mbit/s at 2 kHz, which is more than the 3 Mbit/s link. The firmware skips a sample if the previous packet is still being sent.
 - **Unused parameter.** `signal2noise_ratio` is accepted but has no effect, in both the C and Python versions.
-- **Python server dependencies.** `force_reconstructor_Hannes.py` fails on import with matplotlib 3.9 or newer, as described [above](#optional-python-reconstructor-server).
 - **Differences from the thesis.** The thesis says the integral keeps accumulating during HOLD and that `max_integral` is the maximum within each event. In the code, integration stops at the end of PRESS and `max_integral` persists until a reset.
 
 ## Credits and license

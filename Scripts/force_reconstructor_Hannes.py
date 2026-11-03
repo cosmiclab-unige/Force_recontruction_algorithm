@@ -1,5 +1,5 @@
 import numpy as np
-import matplotlib.cm as cm
+import matplotlib
 
 
 class ForceReconstructor:
@@ -33,7 +33,7 @@ class ForceReconstructor:
         self.release_ratio = release_ratio
 
         # ---------------- Color Map ----------------
-        self.cmap = cm.get_cmap("hot")
+        self.cmap = matplotlib.colormaps["hot"]
 
         # ---------------- Noise ----------------
         self.warmup_samples = warmup_samples

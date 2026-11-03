@@ -45,6 +45,7 @@
 /* USER CODE BEGIN Includes */
 #include <string.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include "ForceReconstructor.h"
 /* USER CODE END Includes */
 
